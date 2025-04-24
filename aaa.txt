@@ -1,3 +1,0 @@
-select city.Name,city.Population from city join country on city.CountryCode=country.Code where city.Name<>country.Name order by city.Po
-pulation desc limit 10;
-
