@@ -58,9 +58,14 @@
   },
   "naive_bayes": {
     "type": "gaussian",
-    "alpha": [1.0],
+    "alpha": [0.5, 1.0],
     "binarize": [0.0],
-    "var_smoothing": [1e-9]
-  }
+    "var_smoothing": [1e-9],
+    "use_discretization": true,
+    "n_bins": 5,
+    "use_mixed_nb": true
 }
+
+  }
+
 

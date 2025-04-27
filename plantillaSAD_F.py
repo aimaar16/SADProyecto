@@ -15,6 +15,8 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.naive_bayes import GaussianNB, MultinomialNB, BernoulliNB
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.naive_bayes import GaussianNB, MultinomialNB, BernoulliNB, CategoricalNB
+
 
 from imblearn.over_sampling import RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
@@ -304,6 +306,11 @@ def split_data(df, config):
     y_train = y_train.values.ravel()
     y_dev = y_dev.values.ravel()
     y_test = y_test.values.ravel()
+    
+    y_train = y_train.astype('int32')
+    y_dev = y_dev.astype('int32')
+    y_test = y_test.astype('int32')
+
 
     return X_train, X_dev, X_test, y_train, y_dev, y_test
 
@@ -465,6 +472,9 @@ def random_forest_pipeline(df, config):
     
     
 def naive_bayes_pipeline(df, config):
+    from sklearn.preprocessing import KBinsDiscretizer
+    from mixed_naive_bayes import MixedNB  # Asegúrate de instalarlo
+
     X_train, X_dev, X_test, y_train, y_dev, y_test = split_data(df, config)
     csv_filename = "naive_bayes_results.csv"
 
@@ -475,16 +485,54 @@ def naive_bayes_pipeline(df, config):
         writer = csv.writer(file)
         writer.writerow(["Algorithm", "Hyperparameters", "Dataset"] + selected_metrics)
 
+    best_value = 0
+    best_params = None
+    best_model = None
+    best_discretizer = None
+
     nb_config = config.get("naive_bayes", {})
     model_type = nb_config.get("type", "gaussian")
     alpha_values = nb_config.get("alpha", [1.0])
     binarize_values = nb_config.get("binarize", [0.0])
     var_smoothing_values = nb_config.get("var_smoothing", [1e-9])
 
-    best_value = 0
-    best_params = None
-    best_model = None
+    use_discretization = nb_config.get("use_discretization", False)
+    use_mixed_nb = nb_config.get("use_mixed_nb", False)
 
+    # --------- DISCRETIZATION + CategoricalNB ---------
+    if use_discretization:
+        discretizer = KBinsDiscretizer(n_bins=nb_config.get("n_bins", 5), encode='ordinal', strategy='uniform')
+        discretizer.fit(X_train)
+
+        X_train_disc = discretizer.transform(X_train)
+        X_dev_disc = discretizer.transform(X_dev)
+        X_test_disc = discretizer.transform(X_test)
+
+        for alpha in alpha_values:
+            model = CategoricalNB(alpha=alpha)
+            model.fit(X_train_disc, y_train)
+            metric_value = evaluate_model(model, X_dev_disc, y_dev, "dev", f"CategoricalNB alpha={alpha}", "naive_bayes (discretized)", csv_filename, config)
+
+            if metric_value > best_value:
+                best_value = metric_value
+                best_params = f"CategoricalNB alpha={alpha} (discretized)"
+                best_model = model
+                best_discretizer = discretizer  # Guardamos discretizador
+
+    # --------- Mixed Naive Bayes ---------
+    if use_mixed_nb:
+        model = MixedNB()
+        model.fit(X_train, y_train)
+        metric_value = evaluate_model(model, X_dev, y_dev, "dev", "MixedNB default", "naive_bayes (mixed)", csv_filename, config)
+
+        if metric_value > best_value:
+            best_value = metric_value
+            best_params = "MixedNB default"
+            best_model = model
+            best_discretizer = None
+
+    # --------- Otros tipos de Naive Bayes clásicos ---------
+    """
     for alpha in alpha_values:
         for binarize in binarize_values:
             for var_smoothing in var_smoothing_values:
@@ -507,10 +555,19 @@ def naive_bayes_pipeline(df, config):
                     best_value = metric_value
                     best_params = params
                     best_model = model
+                    best_discretizer = None
+      """
 
-    print(f"Mejor modelo Naive Bayes ({model_type}): {best_params} con {best_metric} {best_value}")
-    evaluate_model(best_model, X_test, y_test, "test", best_params, "naive_bayes", csv_filename, config)
-    export_model(best_model, "best_naive_bayes_model.pkl")
+    print(f"Mejor modelo Naive Bayes: {best_params} con {best_metric}: {best_value}")
+
+    # --------- Evaluar sobre test ---------
+    if best_discretizer is not None:
+        evaluate_model(best_model, best_discretizer.transform(X_test), y_test, "test", best_params, "naive_bayes", csv_filename, config)
+    else:
+        evaluate_model(best_model, X_test, y_test, "test", best_params, "naive_bayes", csv_filename, config)
+
+    # --------- Exportar modelo ---------
+    export_model({"model": best_model, "discretizer": best_discretizer}, "best_naive_bayes_model.pkl")
 
 def classify_instances_from_csv():
     config = load_config('config.json')
