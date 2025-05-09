@@ -107,8 +107,12 @@ def convert_categorical_to_numeric(df, config):
 def simplify_text(text):
     if isinstance(text, str):
         text = text.lower()
-        text = re.sub(r'[^a-z\s]', '', text)
-        text = ' '.join([word for word in text.split() if word not in ENGLISH_STOP_WORDS and len(word) > 1])
+        # Mantiene letras, espacios y signos de puntuación útiles (!?.)
+        text = re.sub(r'[^a-z\s!?\.]', '', text)
+        # Separa en palabras para eliminar stop words
+        words = text.split()
+        filtered_words = [word for word in words if word not in ENGLISH_STOP_WORDS and len(word) > 1]
+        text = ' '.join(filtered_words)
     else:
         text = ''
     return text

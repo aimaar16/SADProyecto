@@ -21,6 +21,11 @@ from sklearn.naive_bayes import GaussianNB, MultinomialNB, BernoulliNB, Categori
 from imblearn.over_sampling import RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
 
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from itertools import product
+
 
 
 def load_data(file_path):
@@ -380,24 +385,51 @@ def classify_instances_from_csv():
 
 
 
+
 def calculate_final_prediction(df, prediction_col_1, prediction_col_2):
     """
-    Calcula una nueva columna de predicción final.
-    - Duplica prediction_col_1, suma prediction_col_2 y 1.
-    - Clippea entre 4 y 10.
-    - Calcula diferencia con Review_Score.
-    - Printea medias de Review_Score y Final_Prediction.
+    Barrido de hiperparámetros para combinación lineal + clipping.
+    Se prueba en dev, se evalúa en test con la mejor combinación.
     """
-    df['Final_Prediction'] = (2 * df[prediction_col_1] + df[prediction_col_2] + 1).clip(1, 10)
-    df['Difference'] = df['Review_Score'] - df['Final_Prediction']
 
-    review_score_mean = df['Review_Score'].mean()
-    final_prediction_mean = df['Final_Prediction'].mean()
+    # Dividir en dev y test (80%-20%)
+    df_dev, df_test = train_test_split(df, test_size=0.2, random_state=42)
 
-    print(f"Media de Review_Score: {review_score_mean:.2f}")
-    print(f"Media de Final_Prediction: {final_prediction_mean:.2f}")
+    # Rango de hiperparámetros
+    multipliers = [round(x, 1) for x in np.arange(1.0, 5, 0.2)]  # De 1.0 a 3.0
+    biases = [round(x, 1) for x in np.arange(0.0, 5, 0.2)]       # De 0.0 a 3.0
+    clip_mins = list(range(1, 8))                                  # De 1 a 7
 
-    return df
+    
+    best_params = None
+    best_score = float('inf')  # menor diferencia absoluta media
+    
+    print("Evaluando combinaciones en dev set:")
+    for m, b, cmin in product(multipliers, biases, clip_mins):
+        temp_pred = (m * df_dev[prediction_col_1] + df_dev[prediction_col_2] + b).clip(cmin, 10)
+        diff = (df_dev['Review_Score'] - temp_pred).abs().mean()
+        
+        print(f"multiplicador={m}, bias={b}, clip_min={cmin} --> diff_abs_mean={diff:.4f}")
+        
+        if diff < best_score:
+            best_score = diff
+            best_params = (m, b, cmin)
+
+    # Aplicar mejor combinación al test
+    best_m, best_b, best_clip_min = best_params
+    df_test['Final_Prediction'] = (best_m * df_test[prediction_col_1] + df_test[prediction_col_2] + best_b).clip(best_clip_min, 10)
+    df_test['Difference'] = df_test['Review_Score'] - df_test['Final_Prediction']
+
+    review_score_mean = df_test['Review_Score'].mean()
+    final_prediction_mean = df_test['Final_Prediction'].mean()
+
+    print("\n--- Resultados finales en test set ---")
+    print(f"Mejores hiperparámetros encontrados: multiplicador={best_m}, bias={best_b}, clip_min={best_clip_min}")
+    print(f"Media de Review_Score (test): {review_score_mean:.2f}")
+    print(f"Media de Final_Prediction (test): {final_prediction_mean:.2f}")
+    print(f"Diferencia absoluta media (test): {df_test['Difference'].abs().mean():.2f}")
+
+    return df_test
 
 
 

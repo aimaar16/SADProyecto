@@ -14,7 +14,7 @@
       "columns": ["Rating"]
     },
     "text_processing": {
-            "tfidf_min_frequency": 300
+            "tfidf_min_frequency": 950
     },
     "sampling": {
       "method": "undersample",
