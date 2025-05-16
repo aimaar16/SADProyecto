@@ -31,7 +31,7 @@
   "dataset":"AirBNBReviews.csv",
   "model":"best_naive_bayes_model.pkl",
   "mode": "train",
-  "algorithm": "naive_bayes",
+  "algorithm": "random_forest",
   "test_size": 0.2,
   "dev_size": 0.2,
   "metrics": ["accuracy", "precision", "recall", "fscore"],
