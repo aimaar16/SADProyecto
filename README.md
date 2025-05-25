@@ -16,6 +16,7 @@ Este repositorio contiene varios componentes clave:
 - Generativos — Modelos generativos (oLlama) adaptados a la clasificación.
 - SAD.png — Un resumen visual del proyecto, ideal para presentaciones rápidas o papers.
 - Tableau.pdf — Un análisis narrativo comparando **Canadá 🇨🇦** (nuestro país de enfoque) y **Australia 🇦🇺** (competidor) a través de visualizaciones y datos.
+- Informe - Explicación y redultados de los experimentos. Conclusiones.
 
 > 📁 Las instrucciones específicas para ejecutar o probar los componentes están **dentro de cada carpeta**.
 
